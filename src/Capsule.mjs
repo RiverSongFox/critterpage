@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
-import { join, relative, resolve, sep } from 'node:path'
+import { join, resolve } from 'node:path'
 import { MimeTypesDictionary } from './MimeTypesDictionary.mjs'
 
 export class Capsule {
@@ -59,13 +59,6 @@ export class Capsule {
     try {
       let body = await readFile(filePath)
 
-      if (mimeType === 'text/gemini' && this.fromCName === false) {
-        const relativePath = relative(this.basePath, filePath)
-        const userDir = relativePath.split(sep, 1)[0]
-
-        body = this.rewriteLinks(body, userDir)
-      }
-
       return Buffer.concat([
         Buffer.from(`20 ${mimeType}\r\n`, 'utf-8'),
         body,
@@ -97,22 +90,5 @@ export class Capsule {
       console.debug(`Couldn't build directory index (${dirPath})`, e)
       return null
     }
-  }
-
-  rewriteLinks(gemtext, userDir) {
-    const rx = new RegExp(`^=>\\s*(?!${userDir})([^\\s]+)(.*)?$`)
-
-    const modifiedDocument = gemtext.toString()
-      .split(/\r?\n/)
-      .map((line) => {
-        if (!line.startsWith('=>')) {
-          return line
-        }
-
-        return line.replace(rx, `=> ${userDir}/$1$2`)
-      })
-      .join('\n')
-
-    return Buffer.from(modifiedDocument, 'utf-8')
   }
 }
