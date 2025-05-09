@@ -2,6 +2,8 @@ import EventEmitter from 'node:events'
 import { URL } from 'node:url'
 
 const MAX_URI_LENGTH = 1024
+const SOCKET_TIMEOUT_MS = 5000
+const DATA_TRANSFER_TIMEOUT = 10000
 
 export class RequestReader extends EventEmitter {
   constructor(conn) {
@@ -9,11 +11,16 @@ export class RequestReader extends EventEmitter {
 
     this.buffer = ''
 
+    conn.setTimeout(SOCKET_TIMEOUT_MS)
     conn.setEncoding('utf-8')
 
     conn.on('data', (chunk) => {
       this.addRequestChunk(chunk)
     })
+
+    this.dataTransferWatchdog = setTimeout(() => {
+      this.emit('error', 'Timeout')
+    }, DATA_TRANSFER_TIMEOUT)
   }
 
   addRequestChunk(chunk) {
@@ -23,6 +30,8 @@ export class RequestReader extends EventEmitter {
 
     this.buffer += chunk
     if (this.buffer.endsWith('\r\n')) {
+      clearTimeout(this.dataTransferWatchdog)
+
       this.buffer = this.buffer.trim()
       this.validateURL()
     }
