@@ -26,7 +26,11 @@ export class CNameResolver {
     this.nextUpdateAt = now + CNAME_CACHE_TTL_SECONDS * 1000
     this.cache.clear()
 
-    for (const capsuleDir of await readdir(this.dataDir)) {
+    const capsuleDirs = (await readdir(this.dataDir, { withFileTypes: true }))
+      .filter(file => file.isDirectory())
+      .map(file => file.name)
+
+    for (const capsuleDir of capsuleDirs) {
       try {
         const path = join(this.dataDir, capsuleDir, 'CNAME')
         const contents = (await readFile(path, 'utf-8')).trim().toLowerCase()
@@ -35,8 +39,10 @@ export class CNameResolver {
           this.cache.set(contents, capsuleDir)
         }
       }
-      catch (_e) {
-        console.debug(`Couldn't find CNAME in ${capsuleDir}`)
+      catch (e) {
+        if (e.code !== 'ENOENT') {
+          console.warn(`Couldn't read CNAME in ${capsuleDir}; ${e.toString()}`)
+        }
       }
     }
   }
