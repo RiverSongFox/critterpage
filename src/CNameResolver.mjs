@@ -35,8 +35,8 @@ export class CNameResolver {
           this.cache.set(contents, capsuleDir)
         }
       }
-      catch (e) {
-        console.trace(`Couldn't read CNAME`, e)
+      catch (_e) {
+        console.debug(`Couldn't find CNAME in ${capsuleDir}`)
       }
     }
   }

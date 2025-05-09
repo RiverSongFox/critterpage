@@ -1,5 +1,7 @@
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import { access, constants, readdir, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { PassThrough, Readable } from 'node:stream'
 import { MimeTypesDictionary } from './MimeTypesDictionary.mjs'
 
 export class Capsule {
@@ -26,8 +28,8 @@ export class Capsule {
 
       return this.handleFile(path)
     }
-    catch (e) {
-      console.debug(`Couldn't read capsule contents (${path})`, e)
+    catch (_e) {
+      console.debug(`Couldn't read capsule contents (${path})`)
       throw new Error('Not Found')
     }
   }
@@ -44,47 +46,62 @@ export class Capsule {
   }
 
   async handleDirectory(dirPath) {
-    const indexBuffer = await this.handleFile(join(dirPath, 'index.gmi'))
+    const indexFilePath = join(dirPath, 'index.gmi')
 
-    if (indexBuffer) {
-      return indexBuffer
+    try {
+      await access(indexFilePath, constants.R_OK)
+      return await this.handleFile(indexFilePath)
     }
-
-    return this.makeDirectoryListing(dirPath)
+    catch (_e) {
+      return this.makeDirectoryListing(dirPath)
+    }
   }
 
   async handleFile(filePath) {
     const mimeType = MimeTypesDictionary.lookup(filePath)
 
-    try {
-      let body = await readFile(filePath)
+    const responseStream = PassThrough()
+    const fileStream = createReadStream(filePath)
 
-      return Buffer.concat([
-        Buffer.from(`20 ${mimeType}\r\n`, 'utf-8'),
-        body,
-      ])
-    }
-    catch (e) {
-      console.debug(`Couldn't read file (${filePath})`, e)
+    fileStream.on('error', (err) => {
+      if (responseStream.writableEnded) {
+        return
+      }
 
-      return null
-    }
+      if (err.code === 'ENOENT') {
+        responseStream.write(`51 Not Found ${filePath}\r\n`)
+      }
+      else {
+        responseStream.write(`50 Sorry\r\n`)
+      }
+
+      responseStream.end()
+    })
+
+    fileStream.on('open', () => {
+      if (responseStream.writableEnded) {
+        return
+      }
+
+      responseStream.write(`20 ${mimeType}\r\n`)
+      fileStream.pipe(responseStream)
+    })
+
+    return responseStream
   }
 
   async makeDirectoryListing(dirPath) {
     try {
       const items = await readdir(dirPath)
+      const page = [
+        '20 text/gemini \r',
+        ...items
+          .filter(item => !item.startsWith('.'))
+          .map(item => `=> ${item}`),
+      ]
+        .join('\n')
 
-      return Buffer.concat([
-        Buffer.from(`20 text/gemini\r\n`),
-        Buffer.from(
-          items
-            .filter(item => !item.startsWith('.'))
-            .map(item => `=> ${item}`)
-            .join('\n'),
-          'utf-8',
-        ),
-      ])
+      return Readable.from(page)
     }
     catch (e) {
       console.debug(`Couldn't build directory index (${dirPath})`, e)

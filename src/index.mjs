@@ -32,14 +32,17 @@ import { RequestReader } from './RequestReader.mjs'
 
     try {
       const capsule = await capsuleFactory.findCapsule(url)
-      const data = await capsule.read(url.pathname)
+      const dataStream = await capsule.read(url.pathname)
 
-      conn.write(data)
+      dataStream.on('data', (chunk) => {
+        conn.write(chunk)
+      })
+      dataStream.on('end', () => {
+        conn.end()
+      })
     }
     catch (e) {
-      conn.write(`51 ${e.toString}\r\n`)
-    }
-    finally {
+      conn.write(`51 ${e.toString()}\r\n`)
       conn.end()
     }
   })
