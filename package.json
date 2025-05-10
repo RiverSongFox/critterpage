@@ -4,7 +4,8 @@
   "description": "Gemini/HTTP Hosting Service",
   "main": "src/index.mjs",
   "scripts": {
-    "dev": "nodemon src/index.mjs"
+    "dev": "nodemon src/index.mjs",
+    "start": "bun run src/index.mjs"
   },
   "keywords": [],
   "author": "River Fox <river.fox@mailbox.org>",
