@@ -47,7 +47,7 @@ import { RequestReader } from './RequestReader.mjs'
     }
   })
 
-  server.listen(process.env.GEMINI_PORT, () => {
+  server.listen(+process.env.GEMINI_PORT, () => {
     console.log(`Listening on ${process.env.GEMINI_PORT}`)
   })
 })()
