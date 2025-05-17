@@ -26,7 +26,7 @@ import { RequestReader } from './RequestReader.mjs'
       url = await RequestReader.processRequest(conn)
     }
     catch (e) {
-      conn.write(`50 ${e.toString}\r\n`)
+      conn.write(`50 ${e.toString()}\r\n`)
       return conn.end()
     }
 
